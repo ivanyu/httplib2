@@ -1355,7 +1355,7 @@ class Http(object):
                 conn.close()
                 raise ServerNotFoundError("Unable to find the server at %s" % conn.host)
             except socket.error as e:
-                errno_ = e.args[0].errno if isinstance(e.args[0], socket.error) else e.errno
+                errno_ = self._errno_from_exception(e)
                 if errno_ in (errno.ENETUNREACH, errno.EADDRNOTAVAIL) and i < RETRIES:
                     continue  # retry on potentially transient errors
                 raise
@@ -1412,6 +1412,17 @@ class Http(object):
 
             break
         return (response, content)
+
+    @staticmethod
+    def _errno_from_exception(e):
+        if len(e.args) > 0:
+            return e.args[0].errno if isinstance(e.args[0], socket.error) else e.errno
+
+        if hasattr(e, 'socket_err'):
+            e_int = e.socket_err
+            return e_int.args[0].errno if isinstance(e_int.args[0], socket.error) else e_int.errno
+
+        return None
 
     def _request(
         self, conn, host, absolute_uri, request_uri, method, body, headers, redirections, cachekey,
